@@ -21,17 +21,17 @@ jobs:
       - name: Build & push API image
         run: |
           docker build \
-            -f src/ToDoList.Api/Dockerfile \
+            -f ToDoList/src/ToDoList.Api/Dockerfile \
             -t bunyodmusayev/todolist-api:latest \
-            .
+            ToDoList
           docker push bunyodmusayev/todolist-api:latest
 
       - name: Build & push Blazor image
         run: |
           docker build \
-            -f src/ToDoList.BlazorUI/Dockerfile \
+            -f ToDoList/src/ToDoList.BlazorUI/Dockerfile \
             -t bunyodmusayev/todolist-blazor:latest \
-            .
+            ToDoList
           docker push bunyodmusayev/todolist-blazor:latest
 
   deploy:
