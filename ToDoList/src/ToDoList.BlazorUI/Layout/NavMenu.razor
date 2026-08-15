@@ -1,0 +1,19 @@
+<ul class="navbar-nav flex-row gap-3 ms-4">
+    <li class="nav-item">
+        <NavLink class="nav-link text-white" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-list-task me-1"></i>My Tasks
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link text-white" href="tasks/new">
+            <i class="bi bi-plus-circle me-1"></i>New Task
+        </NavLink>
+    </li>
+    <AuthorizeView Roles="Admin,SuperAdmin">
+        <li class="nav-item">
+            <NavLink class="nav-link text-white" href="admin">
+                <i class="bi bi-shield-lock me-1"></i>Admin
+            </NavLink>
+        </li>
+    </AuthorizeView>
+</ul>

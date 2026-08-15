@@ -1,0 +1,50 @@
+@inherits LayoutComponentBase
+@inject AuthClientService Auth
+@inject NavigationManager Navigation
+
+<div class="page">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary px-3 mb-4">
+        <a class="navbar-brand fw-bold" href="">
+            <i class="bi bi-check2-square me-1"></i>ToDoList
+        </a>
+
+        <AuthorizeView>
+            <Authorized>
+                <NavMenu />
+                <div class="ms-auto d-flex align-items-center text-white">
+                    <span class="me-3">
+                        <i class="bi bi-person-circle me-1"></i>
+                        @context.User.Identity?.Name
+                        <span class="badge bg-light text-primary ms-1">@RoleOf(context)</span>
+                    </span>
+                    <button class="btn btn-outline-light btn-sm" @onclick="LogoutAsync">
+                        <i class="bi bi-box-arrow-right me-1"></i>Logout
+                    </button>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="ms-auto">
+                    <a class="btn btn-outline-light btn-sm me-2" href="login">Login</a>
+                    <a class="btn btn-light btn-sm" href="register">Register</a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+
+    <main class="container pb-5">
+        @Body
+    </main>
+</div>
+
+<ToastContainer />
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("login", replace: true);
+    }
+
+    private static string RoleOf(AuthenticationState context)
+        => context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User";
+}

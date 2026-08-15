@@ -1,0 +1,83 @@
+@page "/login"
+@inject AuthClientService Auth
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+@inject ToastService Toasts
+
+<PageTitle>Sign in — ToDoList</PageTitle>
+
+<div class="auth-wrapper">
+    <div class="page-card">
+        <h3 class="mb-4 text-center"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</h3>
+
+        <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-danger py-2">@_error</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Username or Email</label>
+                <InputText class="form-control" @bind-Value="_model.UserNameOrEmail" autocomplete="username" />
+                <ValidationMessage For="() => _model.UserNameOrEmail" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <InputText type="password" class="form-control" @bind-Value="_model.Password" autocomplete="current-password" />
+                <ValidationMessage For="() => _model.Password" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@_busy">
+                @if (_busy)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Sign in
+            </button>
+        </EditForm>
+
+        <p class="text-center mt-3 mb-0 text-muted">
+            Don't have an account? <a href="register">Register</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private readonly LoginRequest _model = new();
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("", replace: true);
+        }
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        var result = await Auth.LoginAsync(_model);
+
+        _busy = false;
+
+        if (result.Success)
+        {
+            Toasts.ShowSuccess("Welcome back!");
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl, replace: true);
+        }
+        else
+        {
+            _error = result.ErrorMessage ?? "Invalid credentials.";
+        }
+    }
+}

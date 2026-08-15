@@ -1,0 +1,88 @@
+@page "/tasks/{Id:long}/edit"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject ToDoClientService Todo
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Task — ToDoList</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Task</h3>
+</div>
+
+<div class="page-card">
+    @if (_loading)
+    {
+        <LoadingSpinner Message="Loading task…" />
+    }
+    else if (_model is null)
+    {
+        <div class="alert alert-warning mb-0">@(_error ?? "Task not found.")</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2">@_error</div>
+        }
+
+        <TaskForm Model="_model"
+                  ShowCompleted="true"
+                  SubmitLabel="Save changes"
+                  Busy="_busy"
+                  OnValidSubmit="HandleSubmitAsync"
+                  OnCancel="Cancel" />
+    }
+</div>
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private TaskFormModel? _model;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Todo.GetByIdAsync(Id);
+        _loading = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            _model = TaskFormModel.FromDto(result.Data);
+        }
+        else
+        {
+            _error = result.ErrorMessage ?? "Task not found.";
+        }
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+
+        var result = await Todo.UpdateAsync(Id, _model.ToUpdateRequest());
+
+        _busy = false;
+
+        if (result.Success)
+        {
+            Toasts.ShowSuccess("Task updated.");
+            Navigation.NavigateTo("");
+        }
+        else
+        {
+            _error = result.ErrorMessage ?? "Could not update the task.";
+        }
+    }
+
+    private void Cancel() => Navigation.NavigateTo("");
+}

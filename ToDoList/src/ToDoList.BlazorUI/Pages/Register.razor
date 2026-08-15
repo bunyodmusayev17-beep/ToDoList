@@ -1,0 +1,121 @@
+@page "/register"
+@inject AuthClientService Auth
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+@inject ToastService Toasts
+
+<PageTitle>Register — ToDoList</PageTitle>
+
+<div class="auth-wrapper">
+    <div class="page-card">
+        <h3 class="mb-4 text-center"><i class="bi bi-person-plus me-2"></i>Create account</h3>
+
+        <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-danger py-2">@_error</div>
+            }
+
+            @if (_serverErrors.Count > 0)
+            {
+                <div class="alert alert-danger py-2">
+                    <ul class="mb-0 ps-3">
+                        @foreach (var msg in _serverErrors)
+                        {
+                            <li>@msg</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">First name</label>
+                    <InputText class="form-control" @bind-Value="_model.FirstName" />
+                    <ValidationMessage For="() => _model.FirstName" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Last name</label>
+                    <InputText class="form-control" @bind-Value="_model.LastName" />
+                    <ValidationMessage For="() => _model.LastName" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <InputText class="form-control" @bind-Value="_model.UserName" autocomplete="username" />
+                <ValidationMessage For="() => _model.UserName" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <InputText class="form-control" @bind-Value="_model.Email" autocomplete="email" />
+                <ValidationMessage For="() => _model.Email" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <InputText type="password" class="form-control" @bind-Value="_model.Password" autocomplete="new-password" />
+                <ValidationMessage For="() => _model.Password" />
+                <div class="form-text">At least 8 characters, with an uppercase, a lowercase, and a digit.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@_busy">
+                @if (_busy)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Create account
+            </button>
+        </EditForm>
+
+        <p class="text-center mt-3 mb-0 text-muted">
+            Already registered? <a href="login">Sign in</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private readonly RegisterRequest _model = new();
+    private bool _busy;
+    private string? _error;
+    private List<string> _serverErrors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("", replace: true);
+        }
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        _serverErrors = new();
+
+        var result = await Auth.RegisterAsync(_model);
+
+        _busy = false;
+
+        if (result.Success)
+        {
+            Toasts.ShowSuccess("Account created. Please sign in.");
+            Navigation.NavigateTo("login", replace: true);
+            return;
+        }
+
+        if (result.ValidationErrors is { Count: > 0 })
+        {
+            _serverErrors = result.ValidationErrors.SelectMany(e => e.Value).ToList();
+        }
+        else
+        {
+            _error = result.ErrorMessage ?? "Registration failed.";
+        }
+    }
+}

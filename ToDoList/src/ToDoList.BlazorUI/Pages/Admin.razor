@@ -1,0 +1,56 @@
+@page "/admin"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin,SuperAdmin")]
+@inject AuthClientService Auth
+@inject ToastService Toasts
+
+<PageTitle>Admin — ToDoList</PageTitle>
+
+<h3 class="mb-3"><i class="bi bi-shield-lock me-2"></i>Admin</h3>
+
+<div class="page-card" style="max-width:640px">
+    <h5>Refresh tokens</h5>
+    <p class="text-muted">
+        Remove expired and revoked refresh tokens from the database to keep it tidy.
+    </p>
+
+    <button class="btn btn-danger" @onclick="PurgeAsync" disabled="@_busy">
+        @if (_busy)
+        {
+            <span class="spinner-border spinner-border-sm me-1"></span>
+        }
+        <i class="bi bi-trash3 me-1"></i>Purge expired / revoked tokens
+    </button>
+
+    @if (_lastPurged is not null)
+    {
+        <div class="alert alert-success mt-3 mb-0">
+            Purged <strong>@_lastPurged</strong> token(s).
+        </div>
+    }
+</div>
+
+@code {
+    private bool _busy;
+    private int? _lastPurged;
+
+    private async Task PurgeAsync()
+    {
+        _busy = true;
+        _lastPurged = null;
+
+        var result = await Auth.PurgeTokensAsync();
+
+        _busy = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            _lastPurged = result.Data.Purged;
+            Toasts.ShowSuccess($"Purged {result.Data.Purged} token(s).");
+        }
+        else
+        {
+            Toasts.ShowError(result.ErrorMessage ?? "Failed to purge tokens.");
+        }
+    }
+}

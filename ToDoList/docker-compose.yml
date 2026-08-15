@@ -1,0 +1,60 @@
+services:
+
+  postgres:
+    image: postgres:16
+
+    container_name: todolist-postgres
+
+    environment:
+      POSTGRES_DB: ToDoListPro
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "1"
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ToDoListPro"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  api:
+    build:
+      context: .
+      dockerfile: src/ToDoList.Api/Dockerfile
+
+    container_name: todolist-api
+
+    ports:
+      - "5000:8080"
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DatabaseConnection: "Host=postgres;Port=5432;Database=ToDoListPro;Username=postgres;Password=1;"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  blazor:
+    build:
+      context: .
+      dockerfile: src/ToDoList.BlazorUI/Dockerfile
+
+    container_name: todolist-blazor
+
+    ports:
+      - "5001:80"
+
+    depends_on:
+      - api
+
+
+volumes:
+  postgres_data:
