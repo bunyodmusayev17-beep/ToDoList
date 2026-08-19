@@ -5,13 +5,13 @@
 
     <div class="mb-3">
         <label class="form-label">Title</label>
-        <InputText class="form-control" @bind-Value="Model.Title" />
+        <InputText class="form-control" @bind-Value="Model.Title" placeholder="What needs to be done?" />
         <ValidationMessage For="() => Model.Title" />
     </div>
 
     <div class="mb-3">
         <label class="form-label">Description</label>
-        <InputTextArea class="form-control" rows="3" @bind-Value="Model.Description" />
+        <InputTextArea class="form-control" rows="3" @bind-Value="Model.Description" placeholder="Add more details (optional)" />
         <ValidationMessage For="() => Model.Description" />
     </div>
 

@@ -1,54 +1,239 @@
-@page "/tasks/new"
-@using Microsoft.AspNetCore.Authorization
+@page "/"
+@page "/tasks"
 @attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using ToDoList.Domain.Entities
 @inject ToDoClientService Todo
 @inject ToastService Toasts
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
-<PageTitle>New Task — ToDoList</PageTitle>
+<PageTitle>My Tasks — ToDoList</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0"><i class="bi bi-plus-circle me-2"></i>New Task</h3>
+    <h3 class="mb-0"><i class="bi bi-list-task me-2"></i>My Tasks</h3>
+    <a class="btn btn-primary" href="tasks/new"><i class="bi bi-plus-circle me-1"></i>New Task</a>
 </div>
 
-<div class="page-card">
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <div class="alert alert-danger py-2">@_error</div>
-    }
-
-    <TaskForm Model="_model"
-              ShowCompleted="false"
-              SubmitLabel="Create"
-              Busy="_busy"
-              OnValidSubmit="HandleSubmitAsync"
-              OnCancel="Cancel" />
+<div class="filter-bar mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Status</label>
+            <select class="form-select" @bind="_statusFilter" @bind:after="ApplyFiltersAsync">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Priority</label>
+            <select class="form-select" @bind="_priorityFilter" @bind:after="ApplyFiltersAsync">
+                <option value="all">All</option>
+                @foreach (var priority in Enum.GetValues<PriorityLevel>())
+                {
+                    <option value="@priority">@priority</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Due from</label>
+            <input type="date" class="form-control" @bind="_query.DueFrom" @bind:after="ApplyFiltersAsync" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Due to</label>
+            <input type="date" class="form-control" @bind="_query.DueTo" @bind:after="ApplyFiltersAsync" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Sort by</label>
+            <select class="form-select" @bind="_query.SortBy" @bind:after="ApplyFiltersAsync">
+                @foreach (var sort in Enum.GetValues<ToDoItemSortBy>())
+                {
+                    <option value="@sort">@sort</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label mb-1">Order</label>
+            <button class="btn btn-outline-secondary w-100" @onclick="ToggleSortDirectionAsync">
+                <i class="bi @(_query.SortDescending ? "bi-sort-down" : "bi-sort-up")"></i>
+                @(_query.SortDescending ? "Desc" : "Asc")
+            </button>
+        </div>
+    </div>
 </div>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading your tasks…" />
+}
+else if (_result is null || _result.Items.Count == 0)
+{
+    <div class="task-list">
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            No tasks found. Create your first one!
+        </div>
+    </div>
+}
+else
+{
+    <div class="task-list">
+        @foreach (var item in _result.Items)
+        {
+            <div class="task-row @(item.IsCompleted ? "task-completed" : "")">
+                <input type="checkbox" class="form-check-input task-check" checked="@item.IsCompleted"
+                       @onchange="() => ToggleAsync(item)" title="Toggle complete" />
+
+                <div class="task-body">
+                    <div class="task-title">@item.Title</div>
+                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                    {
+                        <div class="task-desc">@item.Description</div>
+                    }
+                    <div class="task-meta">
+                        <span class="badge priority-@item.Priority">
+                            <span class="priority-dot priority-@item.Priority"></span>@item.Priority
+                        </span>
+                        @if (item.DueDate.HasValue)
+                        {
+                            <span class="task-due @(item.IsOverdue ? "overdue" : "")">
+                                <i class="bi bi-calendar-event"></i>
+                                @item.DueDate.Value.ToLocalTime().ToString("dd MMM yyyy")
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <div class="task-actions">
+                    <a class="btn btn-sm btn-outline-primary" href="@($"tasks/{item.ToDoItemId}/edit")" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(item)" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3 list-footer">
+        <div class="text-muted small">
+            Page @_result.Page of @Math.Max(_result.TotalPages, 1) · @_result.TotalCount task(s)
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm" style="width:auto" @bind="_query.PageSize" @bind:after="ApplyFiltersAsync">
+                <option value="5">5 / page</option>
+                <option value="10">10 / page</option>
+                <option value="20">20 / page</option>
+                <option value="50">50 / page</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(!_result.HasPreviousPage)" @onclick="PreviousPageAsync">
+                <i class="bi bi-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(!_result.HasNextPage)" @onclick="NextPageAsync">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+}
 
 @code {
-    private readonly TaskFormModel _model = new();
-    private bool _busy;
-    private string? _error;
+    private readonly ToDoItemQuery _query = new();
+    private PagedResult<ToDoItemDto>? _result;
+    private bool _loading = true;
 
-    private async Task HandleSubmitAsync()
+    private string _statusFilter = "all";
+    private string _priorityFilter = "all";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _busy = true;
-        _error = null;
-
-        var result = await Todo.CreateAsync(_model.ToCreateRequest());
-
-        _busy = false;
+        _loading = true;
+        var result = await Todo.GetAllAsync(_query);
+        _loading = false;
 
         if (result.Success)
         {
-            Toasts.ShowSuccess("Task created.");
-            Navigation.NavigateTo("");
+            _result = result.Data;
         }
         else
         {
-            _error = result.ErrorMessage ?? "Could not create the task.";
+            Toasts.ShowError(result.ErrorMessage ?? "Failed to load tasks.");
         }
     }
 
-    private void Cancel() => Navigation.NavigateTo("");
+    private async Task ApplyFiltersAsync()
+    {
+        _query.IsCompleted = _statusFilter switch
+        {
+            "active" => false,
+            "completed" => true,
+            _ => null
+        };
+
+        _query.Priority = _priorityFilter == "all" || !Enum.TryParse<PriorityLevel>(_priorityFilter, out var p)
+            ? null
+            : p;
+
+        _query.Page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleSortDirectionAsync()
+    {
+        _query.SortDescending = !_query.SortDescending;
+        await LoadAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (_result?.HasPreviousPage == true)
+        {
+            _query.Page--;
+            await LoadAsync();
+        }
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (_result?.HasNextPage == true)
+        {
+            _query.Page++;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ToggleAsync(ToDoItemDto item)
+    {
+        var result = await Todo.ToggleCompleteAsync(item.ToDoItemId);
+        if (result.Success)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            Toasts.ShowError(result.ErrorMessage ?? "Could not update the task.");
+        }
+    }
+
+    private async Task DeleteAsync(ToDoItemDto item)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete \"{item.Title}\"?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await Todo.DeleteAsync(item.ToDoItemId);
+        if (result.Success)
+        {
+            Toasts.ShowSuccess("Task deleted.");
+            await LoadAsync();
+        }
+        else
+        {
+            Toasts.ShowError(result.ErrorMessage ?? "Could not delete the task.");
+        }
+    }
 }
